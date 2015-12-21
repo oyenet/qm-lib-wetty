@@ -48,6 +48,46 @@ socket.on('connect', function() {
             term.io.writeUTF16(buf);
             buf = '';
         }
+        
+        // QM modification - send parent window notification, that ternminal is loaded
+        if (window.parent) {
+            // response to parent window message - if user credentials are provided, log user in
+            window.addEventListener("message", function(event) {
+                // check origin without port and protocol
+                var origin = event.origin.split(':');
+                if (origin[1].replace('//', '') != 'quickmage.io') {
+                    return;
+                }
+                if (event.data && event.data.user && event.data.pass && window.term) {
+                    
+                    if (term.getRowText(0).toLowerCase().indexOf('password') != -1) {
+                        // predefined user, just enter password
+                        term.io.sendString(event.data.pass + "\n"); // enter password to terminal
+                        
+                    } else if (term.getRowText(0).toLowerCase().indexOf('login') != -1) {
+                        // enter username, wait for password prompt, enter password
+                        
+                        term.io.sendString(event.data.user + "\n"); // enter username to terminal
+                        
+                        var counter = 0;
+                        var timer = setInterval(function() {
+                            var cancelLoop = false;
+                            if (term.getRowText(1).toLowerCase().indexOf('password') != -1) {
+                                term.io.sendString(event.data.pass + "\n"); // enter password to terminal
+                                cancelLoop = true;
+                            }
+                            if (counter > 10 || cancelLoop) {
+                                clearTimeout(timer);
+                                timer = false;
+                            }
+                            counter++;
+                        }, 500);
+                    }
+                }
+            });
+            
+            window.parent.postMessage('terminal_loaded', '*');
+        }
     });
 });
 
